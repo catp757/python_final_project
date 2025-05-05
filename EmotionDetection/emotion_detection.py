@@ -2,62 +2,63 @@ import requests
 import json
 
 def emotion_detector(text_to_analyse):
-    none_response = {
-        'anger': None,
-        'disgust': None,
-        'fear': None,
-        'joy': None,
-        'sadness': None,
-        'dominant_emotion': None
-    }
-
-    # Return None values for blank input
-    if not text_to_analyse or text_to_analyse.strip() == "":
-        return none_response
-
-    # Define the URL and headers
+    # Define the URL for the emotion analysis API
     url = 'https://sn-watson-emotion.labs.skills.network/v1/watson.runtime.nlp.v1/NlpService/EmotionPredict'
-    header = {"grpc-metadata-mm-model-id": "emotion_aggregated-workflow_lang_en_stock"}
+
+    # Create the request payload
     myobj = {"raw_document": {"text": text_to_analyse}}
 
-    try:
-        response = requests.post(url, json=myobj, headers=header)
-    except requests.exceptions.RequestException:
-        # Handle connection error or timeout
-        return none_response
+    # Set the request headers
+    header = {"grpc-metadata-mm-model-id": "emotion_aggregated-workflow_lang_en_stock"}
 
-    # Handle blank input or invalid API usage
-    if response.status_code == 400:
-        return none_response
+    # Make the POST request
+    response = requests.post(url, json=myobj, headers=header)
 
-    # Parse valid response
+    # Convert the response text to a Python dictionary using json.loads()
     try:
         formatted_response = json.loads(response.text)
-        emotion_scores = formatted_response['emotionPredictions'][0]['emotion']
-        anger = emotion_scores.get('anger', 0)
-        disgust = emotion_scores.get('disgust', 0)
-        fear = emotion_scores.get('fear', 0)
-        joy = emotion_scores.get('joy', 0)
-        sadness = emotion_scores.get('sadness', 0)
+    except ValueError:
+        return "Error: Invalid JSON response"
 
-        # Find dominant emotion
-        emotions = {
-            'anger': anger,
-            'disgust': disgust,
-            'fear': fear,
-            'joy': joy,
-            'sadness': sadness
-        }
-        dominant_emotion = max(emotions, key=emotions.get)
-
+	# Check for 404 status
+    if response.status_code == 400:
         return {
-            'anger': anger,
-            'disgust': disgust,
-            'fear': fear,
-            'joy': joy,
-            'sadness': sadness,
-            'dominant_emotion': dominant_emotion
+            'anger': None,
+            'disgust': None,
+            'fear': None,
+            'joy': None,
+            'sadness': None,
+            'dominant_emotion': None
         }
+		
+    # Extract the emotion scores
+    try:
+        emotion_scores = formatted_response['emotionPredictions'][0]['emotion']
+        anger_score = emotion_scores.get('anger', 0)
+        disgust_score = emotion_scores.get('disgust', 0)
+        fear_score = emotion_scores.get('fear', 0)
+        joy_score = emotion_scores.get('joy', 0)
+        sadness_score = emotion_scores.get('sadness', 0)
+    except (KeyError, IndexError, TypeError):
+        return "Error: Malformed response structure"
 
-    except (ValueError, KeyError, IndexError, json.JSONDecodeError, TypeError):
-        return none_response
+    # Identify the dominant emotion (emotion with the highest score)
+    emotions = {
+        'anger': anger_score,
+        'disgust': disgust_score,
+        'fear': fear_score,
+        'joy': joy_score,
+        'sadness': sadness_score
+    }
+    
+    dominant_emotion = max(emotions, key=emotions.get)
+
+    # Return the structured result
+    return {
+        'anger': anger_score,
+        'disgust': disgust_score,
+        'fear': fear_score,
+        'joy': joy_score,
+        'sadness': sadness_score,
+        'dominant_emotion': dominant_emotion
+    }
